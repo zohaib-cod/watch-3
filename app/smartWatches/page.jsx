@@ -1,0 +1,278 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { Playfair_Display } from "next/font/google";
+import { Star, ChevronDown, Search, ShoppingBag, Heart, Check } from "lucide-react";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-display",
+});
+
+const BADGE_STYLES = {
+  NEW: "bg-blue-600 text-white",
+  SALE: "bg-red-600 text-white",
+  BESTSELLER: "bg-purple-600 text-white",
+  LIMITED: "bg-amber-500 text-white",
+};
+
+const CATEGORIES = [
+  { name: "Home", href: "/" },
+  { name: "For Couples", href: "/forCouples" },
+];
+
+const SORT_OPTIONS = ["Featured", "Price: Low to High", "Price: High to Low", "Newest", "Top Rated"];
+
+const products = [
+  { id: 1, name: "Horizonx Smartwatch", category: "1.38 IPS Display | Round Dial", image: "/image 25.jpg", badge: "NEW", rating: 4.9, originalPrice: 8000, price: 4999, swatches: ["#D4AF37", "#1A1A1A", "#C0C0C0"] },
+  { id: 2, name: "Prestige Smartwatch", category: "Amoled | 3D Curved Screen", image: "/image 26.jpg", badge: "SALE", rating: 4.7, originalPrice: 18999, price: 9499, swatches: ["#1A1A1A", "#8B5E3C"] },
+];
+
+function formatPrice(value) {
+  return `Rs ${value.toLocaleString("en-PK")}`;
+}
+
+// Reads existing cart from localStorage, adds the product, and saves it back.
+function addToCart(product) {
+  if (typeof window === "undefined") return;
+
+  const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+  const existingIndex = existing.findIndex((item) => item.id === product.id);
+
+  if (existingIndex > -1) {
+    existing[existingIndex].quantity += 1;
+  } else {
+    existing.push({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      image: product.image,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      quantity: 1,
+    });
+  }
+
+  localStorage.setItem("cart", JSON.stringify(existing));
+}
+
+// Stores ONLY the specific product that was Quick-Bought, so the
+// /QuickBuy page knows exactly which single product to display.
+function setQuickBuyProduct(product) {
+  if (typeof window === "undefined") return;
+
+  localStorage.setItem(
+    "quickBuyProduct",
+    JSON.stringify({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      image: product.image,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      rating: product.rating,
+      swatches: product.swatches,
+      quantity: 1,
+    })
+  );
+}
+
+function ProductCard({ product, onQuickBuy }) {
+  const [isLiked, setIsLiked] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const handleQuickBuy = () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    onQuickBuy(product);
+  };
+
+  return (
+    <div className="group relative flex flex-col bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-300/80">
+      {/* Image + badges */}
+      <div className="relative w-full aspect-square overflow-hidden bg-gray-100">
+        {product.badge && (
+          <span
+            className={`absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-[10px] font-semibold tracking-wide uppercase shadow-sm ${BADGE_STYLES[product.badge]}`}
+          >
+            {product.badge}
+          </span>
+        )}
+
+        <button
+          onClick={() => setIsLiked(!isLiked)}
+          className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 backdrop-blur-sm shadow-sm transition-colors hover:bg-white"
+          aria-label="Like product"
+        >
+          <Heart
+            className={`h-4 w-4 transition-colors ${isLiked ? "fill-red-500 text-red-500" : "text-gray-600"}`}
+          />
+        </button>
+
+        <span className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 text-[11px] font-semibold text-gray-800 shadow-sm">
+          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          {product.rating.toFixed(1)}
+        </span>
+
+        <Image
+          src={product.image}
+          alt={product.name}
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+      </div>
+
+      {/* Info */}
+      <div className="flex flex-col gap-2.5 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {product.swatches.map((color, i) => (
+              <span
+                key={i}
+                className="h-4 w-4 rounded-full border border-gray-300 ring-1 ring-white shadow-sm transition-transform hover:scale-110"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-gray-400">{product.category}</span>
+        </div>
+
+        <h3 className="text-base font-semibold text-gray-900 leading-tight tracking-tight">
+          {product.name}
+        </h3>
+
+        <div className="flex items-baseline gap-2.5 mt-0.5">
+          <span className="text-sm text-gray-400 line-through">
+            {formatPrice(product.originalPrice)}
+          </span>
+          <span className="text-lg font-bold text-red-600">
+            {formatPrice(product.price)}
+          </span>
+        </div>
+
+        <button
+          onClick={handleQuickBuy}
+          disabled={isNavigating}
+          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${
+            isNavigating
+              ? "border-green-600 bg-green-600 text-white"
+              : "border-gray-900 bg-gray-900 text-white hover:bg-gray-800 hover:border-gray-800"
+          }`}
+        >
+          {isNavigating ? (
+            <>
+              <Check className="h-4 w-4" />
+              Added
+            </>
+          ) : (
+            <>
+              <ShoppingBag className="h-4 w-4" />
+              Quick Buy
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function ProductListing() {
+  const router = useRouter();
+  const [sortOpen, setSortOpen] = useState(false);
+  const [sort, setSort] = useState(SORT_OPTIONS[0]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleQuickBuy = (product) => {
+    addToCart(product);
+    setQuickBuyProduct(product);
+    router.push(`/QuickBuy?id=${product.id}`);
+  };
+
+  return (
+    <main className="max-w-[1800px] mx-auto px-4 sm:px-8 py-8">
+      {/* Filter/sort bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 mb-8 border-b border-gray-200">
+        <nav aria-label="Breadcrumb">
+          <ol className="flex items-center gap-2 text-sm text-gray-500">
+            {CATEGORIES.map((crumb, i) => (
+              <li key={crumb.name} className="flex items-center gap-2">
+                {i > 0 && <span className="text-gray-300">/</span>}
+                <Link
+                  href={crumb.href}
+                  className={`${
+                    i === CATEGORIES.length - 1
+                      ? "text-gray-900 font-medium"
+                      : "hover:text-gray-900 transition-colors"
+                  }`}
+                >
+                  {crumb.name}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          {/* Sort dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setSortOpen((v) => !v)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 rounded-xl border border-gray-300 px-4 py-2.5 transition-all hover:border-gray-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            >
+              Sort: {sort}
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${sortOpen ? "rotate-180" : ""}`} />
+            </button>
+            {sortOpen && (
+              <ul className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-200 shadow-lg z-20 text-sm overflow-hidden animate-in fade-in slide-in-from-top-2">
+                {SORT_OPTIONS.map((opt) => (
+                  <li
+                    key={opt}
+                    onClick={() => {
+                      setSort(opt);
+                      setSortOpen(false);
+                    }}
+                    className={`px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors ${
+                      opt === sort ? "bg-gray-50 font-medium text-gray-900" : "text-gray-700"
+                    }`}
+                  >
+                    {opt}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2.5 transition-all focus-within:border-gray-900 focus-within:shadow-sm">
+            <Search className="h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-sm outline-none placeholder:text-gray-400 w-32 transition-all focus:w-44"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Product grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-8">
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} onQuickBuy={handleQuickBuy} />
+        ))}
+      </div>
+
+      {/* Load more / footer */}
+      <div className="mt-12 text-center">
+        <button className="rounded-xl border border-gray-300 px-8 py-3 text-sm font-medium text-gray-700 transition-all hover:border-gray-900 hover:bg-gray-900 hover:text-white hover:shadow-lg">
+          Load More
+        </button>
+      </div>
+    </main>
+  );
+}
